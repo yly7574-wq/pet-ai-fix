@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>宠物皮肤病 AI 免费初筛</title>
+    <!-- 引入 Markdown 渲染库 -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #FF9EAA;
+            --secondary-color: #FFF5E1;
+            --text-color: #4A4A4A;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #FAFAFA;
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 480px;
+            background-color: #fff;
+            border-radius: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 1.5rem;
+            color: #FF6B81;
+            margin-bottom: 10px;
+        }
+
+        .upload-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border: 2px dashed var(--primary-color);
+            border-radius: 16px;
+            background-color: var(--secondary-color);
+            height: 200px;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s;
+        }
+        
+        .upload-area:active { transform: scale(0.99); }
+
+        .file-input-hidden {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            opacity: 0; 
+            cursor: pointer;
+            z-index: 20; 
+        }
+
+        .upload-content {
+            text-align: center;
+            pointer-events: none;
+        }
+
+        .upload-icon { font-size: 3rem; margin-bottom: 10px; }
+        .upload-text { color: #888; font-size: 0.9rem; }
+
+        #previewImage {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            border-radius: 14px;
+            pointer-events: none;
+        }
+
+        .btn-diagnose {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 16px;
+            border-radius: 50px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(255, 158, 170, 0.4);
+            display: flex; justify-content: center; align-items: center;
+        }
+        .btn-diagnose:disabled { background-color: #ccc; box-shadow: none; cursor: not-allowed; }
+
+        #statusLog {
+            font-size: 0.85rem;
+            color: #666;
+            background: #F2F3F5;
+            padding: 12px;
+            border-radius: 8px;
+            display: none;
+            white-space: pre-wrap;
+        }
+
+        #resultArea {
+            background-color: #F8F9FA;
+            border-radius: 12px;
+            padding: 16px;
+            display: none;
+            line-height: 1.6;
+        }
+        #resultContent img { max-width: 100%; border-radius: 8px; }
+
+        .loading-spinner {
+            border: 3px solid #f3f3f3; border-top: 3px solid #fff;
+            border-radius: 50%; width: 20px; height: 20px;
+            animation: spin 1s linear infinite; margin-right: 10px; display: none;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🐱🐶 宠物皮肤病<br>AI 免费初筛</h1>
+
+    <label class="upload-area" id="dropZone">
+        <input type="file" id="fileInput" accept="image/*" class="file-input-hidden">
+        <div class="upload-content" id="uploadPlaceholder">
+            <div class="upload-icon">📷</div>
+            <div class="upload-text">点击这里上传照片</div>
+        </div>
+        <img id="previewImage" alt="Preview">
+    </label>
+
+    <button class="btn-diagnose" id="diagnoseBtn">
+        <div class="loading-spinner" id="spinner"></div>
+        <span id="btnText">开始诊断</span>
+    </button>
+    
+    <div id="statusLog"></div>
+
+    <div id="resultArea">
+        <div id="resultContent"></div>
+    </div>
+</div>
+
+<script>
+    // ================= 配置区域 (Pages Functions 版) =================
+    
+    // 1. 这里保持为空字符串 '' 即可！
+    // 这样代码会自动请求当前域名下的 /upload, /chat 接口
+    // Cloudflare Pages 会自动把这些请求路由给你的 functions/[[path]].js
+    const WORKER_URL = ''; 
+
+    // 2. 填入你的 Bot ID
+    const COZE_BOT_ID = 'YOUR_BOT_ID';          
+
+    // =============================================================
+
+    const fileInput = document.getElementById('fileInput');
+    const previewImage = document.getElementById('previewImage');
+    const uploadPlaceholder = document.getElementById('uploadPlaceholder');
+    const diagnoseBtn = document.getElementById('diagnoseBtn');
+    const resultArea = document.getElementById('resultArea');
+    const resultContent = document.getElementById('resultContent');
+    const statusLog = document.getElementById('statusLog');
+    const spinner = document.getElementById('spinner');
+    const btnText = document.getElementById('btnText');
+
+    let selectedFile = null;
+
+    function log(msg, isError = false) {
+        statusLog.style.display = 'block';
+        statusLog.innerText = msg;
+        statusLog.style.color = isError ? '#FF4D4F' : '#666';
+        if(isError) console.error(msg); else console.log(msg);
+    }
+
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files.length > 0) {
+            const file = e.target.files[0];
+            if (!file.type.startsWith('image/')) return alert('请上传图片文件');
+            selectedFile = file;
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                previewImage.src = evt.target.result;
+                previewImage.style.display = 'block';
+                log(`📸 已选图片: ${file.name}`);
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    diagnoseBtn.addEventListener('click', async () => {
+        // 本地环境检查
+        if (window.location.protocol === 'file:') {
+            return alert('❌ 请将项目部署到 Cloudflare Pages 后再运行！\n本地直接打开无法调用 Functions 接口。');
+        }
+
+        if (!selectedFile) return alert('请先上传图片！');
+        
+        setLoading(true);
+        resultArea.style.display = 'none';
+        
+        try {
+            // 1. 上传图片 (请求相对路径 /upload)
+            log('🚀 1/3 正在上传图片...');
+            const fileId = await uploadFileToProxy(selectedFile);
+            
+            // 2. 创建对话并轮询 (请求相对路径 /chat)
+            log('🤖 2/3 图片已接收，AI正在思考中...');
+            const answer = await processChatProxy(fileId);
+            
+            // 3. 渲染
+            log('✨ 3/3 诊断完成！');
+            resultContent.innerHTML = marked.parse(answer);
+            resultArea.style.display = 'block';
+
+        } catch (error) {
+            log(`❌ 错误: ${error.message}`, true);
+        } finally {
+            setLoading(false);
+        }
+    });
+
+    // --- 后端代理调用 (自动使用相对路径) ---
+
+    async function uploadFileToProxy(file) {
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        // 这里的路径前面加了 /，代表网站根目录下的 upload
+        const res = await fetch(`${WORKER_URL}/upload`, {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!res.ok) {
+            // 尝试读取错误信息
+            let errMsg = `Status ${res.status}`;
+            try { errMsg = await res.text(); } catch(e){}
+            throw new Error(`上传请求失败: ${errMsg}`);
+        }
+
+        const data = await res.json();
+        if (data.code !== 0) throw new Error(data.msg);
+        return data.data.id;
+    }
+
+    async function processChatProxy(fileId) {
+        // A. 创建对话
+        const messageObject = [
+            { type: "text", text: "请仔细查看这张图片，分析宠物可能的皮肤病症状，并给出治疗建议。" },
+            { type: "image", file_id: fileId }
+        ];
+
+        const payload = {
+            bot_id: COZE_BOT_ID,
+            user_id: "user_" + Date.now(),
+            stream: false,
+            auto_save_history: true,
+            additional_messages: [
+                {
+                    role: "user",
+                    content_type: "object_string",
+                    content: JSON.stringify(messageObject)
+                }
+            ]
+        };
+
+        const createRes = await fetch(`${WORKER_URL}/chat`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!createRes.ok) throw new Error(`创建对话失败 Status: ${createRes.status}`);
+        const createData = await createRes.json();
+        
+        if (createData.code !== 0) throw new Error(`创建对话API报错: ${createData.msg}`);
+        
+        const conversationId = createData.data.conversation_id;
+        const chatId = createData.data.id;
+
+        // B. 轮询状态
+        let status = createData.data.status;
+        let attempts = 0;
+        
+        while (status === 'in_progress' || status === 'created') {
+            attempts++;
+            if (attempts > 30) throw new Error("AI 响应超时");
+            
+            log(`⏳ AI 思考中... (${attempts}s)`);
+            await new Promise(r => setTimeout(r, 1000));
+
+            // 请求相对路径 /retrieve
+            const checkRes = await fetch(`${WORKER_URL}/retrieve?chat_id=${chatId}&conversation_id=${conversationId}`, {
+                method: 'GET'
+            });
+            const checkData = await checkRes.json();
+            status = checkData.data.status;
+            
+            if (status === 'failed') throw new Error("AI 处理失败: " + checkData.data.last_error?.msg);
+        }
+
+        if (status !== 'completed') throw new Error(`任务异常状态: ${status}`);
+
+        // C. 获取最终消息 (请求相对路径 /message/list)
+        const listRes = await fetch(`${WORKER_URL}/message/list?chat_id=${chatId}&conversation_id=${conversationId}`, {
+            method: 'GET'
+        });
+        
+        const listData = await listRes.json();
+        const messages = listData.data;
+        
+        const answerMsg = messages.find(m => m.role === 'assistant' && m.type === 'answer');
+        if (answerMsg) return answerMsg.content;
+        
+        return "AI 处理完成，但未返回文本内容。";
+    }
+
+    function setLoading(isLoading) {
+        diagnoseBtn.disabled = isLoading;
+        spinner.style.display = isLoading ? 'block' : 'none';
+        btnText.innerText = isLoading ? '诊断中...' : '开始诊断';
+    }
+</script>
+
+</body>
+</html>
