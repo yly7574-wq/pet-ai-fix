@@ -43,6 +43,7 @@
             margin-bottom: 10px;
         }
 
+        /* 上传区域 */
         .upload-area {
             display: flex;
             flex-direction: column;
@@ -61,66 +62,38 @@
         .upload-area:active { transform: scale(0.99); }
 
         .file-input-hidden {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            top: 0;
-            left: 0;
-            opacity: 0; 
-            cursor: pointer;
-            z-index: 20; 
+            position: absolute; width: 100%; height: 100%;
+            top: 0; left: 0; opacity: 0; cursor: pointer; z-index: 20; 
         }
 
-        .upload-content {
-            text-align: center;
-            pointer-events: none;
-        }
-
+        .upload-content { text-align: center; pointer-events: none; }
         .upload-icon { font-size: 3rem; margin-bottom: 10px; }
         .upload-text { color: #888; font-size: 0.9rem; }
 
         #previewImage {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            display: none;
-            position: absolute;
-            top: 0;
-            left: 0;
-            border-radius: 14px;
-            pointer-events: none;
+            width: 100%; height: 100%; object-fit: cover;
+            display: none; position: absolute; top: 0; left: 0;
+            border-radius: 14px; pointer-events: none;
         }
 
+        /* 按钮样式 */
         .btn-diagnose {
             background-color: var(--primary-color);
-            color: white;
-            border: none;
-            padding: 16px;
-            border-radius: 50px;
-            font-size: 1.1rem;
-            font-weight: bold;
-            cursor: pointer;
-            box-shadow: 0 4px 10px rgba(255, 158, 170, 0.4);
+            color: white; border: none; padding: 16px;
+            border-radius: 50px; font-size: 1.1rem; font-weight: bold;
+            cursor: pointer; box-shadow: 0 4px 10px rgba(255, 158, 170, 0.4);
             display: flex; justify-content: center; align-items: center;
         }
         .btn-diagnose:disabled { background-color: #ccc; box-shadow: none; cursor: not-allowed; }
 
         #statusLog {
-            font-size: 0.85rem;
-            color: #666;
-            background: #F2F3F5;
-            padding: 12px;
-            border-radius: 8px;
-            display: none;
-            white-space: pre-wrap;
+            font-size: 0.85rem; color: #666; background: #F2F3F5;
+            padding: 12px; border-radius: 8px; display: none; white-space: pre-wrap;
         }
 
         #resultArea {
-            background-color: #F8F9FA;
-            border-radius: 12px;
-            padding: 16px;
-            display: none;
-            line-height: 1.6;
+            background-color: #F8F9FA; border-radius: 12px;
+            padding: 16px; display: none; line-height: 1.7;
         }
         #resultContent img { max-width: 100%; border-radius: 8px; }
 
@@ -130,6 +103,45 @@
             animation: spin 1s linear infinite; margin-right: 10px; display: none;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* --- 🛒 药品链接样式 (核心美化) --- */
+        .drug-link {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 10px;
+            margin: 0 4px;
+            background-color: #fff;
+            color: #555;
+            text-decoration: none;
+            border-radius: 15px;
+            font-size: 0.9em;
+            border: 1px solid #ddd;
+            transition: all 0.2s;
+            white-space: nowrap;
+            vertical-align: middle;
+        }
+        
+        .drug-link:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            color: #333;
+        }
+
+        /* 🔥 VIP 推广链接样式 */
+        .drug-link.promoted {
+            background: linear-gradient(135deg, #FFF0F5 0%, #FFE4E1 100%);
+            color: #FF4757;
+            border-color: #FF9EAA;
+            font-weight: bold;
+            /* 呼吸动效 */
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(255, 107, 129, 0.4); }
+            70% { box-shadow: 0 0 0 4px rgba(255, 107, 129, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 107, 129, 0); }
+        }
     </style>
 </head>
 <body>
@@ -159,17 +171,31 @@
 </div>
 
 <script>
-    // ================= 配置区域 (Pages Functions 版) =================
+    // ================= 配置区域 =================
     
-    // 1. 这里保持为空字符串 '' 即可！
-    // 这样代码会自动请求当前域名下的 /upload, /chat 接口
-    // Cloudflare Pages 会自动把这些请求路由给你的 functions/[[path]].js
+    // 1. Cloudflare Pages 自动适配，保持为空即可
     const WORKER_URL = ''; 
 
     // 2. 填入你的 Bot ID
     const COZE_BOT_ID = '7584683174408880138';          
 
-    // =============================================================
+    // ===========================================
+
+    // --- 🛒 核心：自定义带货链接配置 ---
+    // AI 只要提到这些词，就会生成高亮按钮并跳转到你指定的链接
+    const DRUG_MAP = {
+        // "关键词": "你的链接"
+        "皮特芬": "https://s.click.taobao.com/t?e=m%3D2%26s%3D%2F3%2FwWSGQFfZw4vFB6t2Z2ueEDrYVVa64YUrQeSeIhnK53hKxp7mNFuhCZFSw9yq2XUJ5qehhHKT0JlhLk0Jl4fmB7E%2BalZfSrAsMK%2BddScro%2Fi1T%2FGEHGtD5eST1FcWQhXCEiyvUOUCBv1l5JleziokvxOetQTZfHPHZ2OZt67s56ZoUzm0cdkhUSIdDrY3ktWAKfhx9%2FCLZz2VyWhvCAyzGN2MQb7ZpuXefhMU%2FgnGGKJ%2FhtV4sxbuQg7xPMmpJZ4UZC2wAF9OPNpcFr3zTxKM70AliNjwJcn7ARWQ6ocV0hb0k2TPv%2BG5KHOQOD12OJ4y1E5FgIPwuPoXhTvs068Yl7w3%2FA2kb&union_lens=lensId%3APUB%401766563097%4021500b88_2123_19b4f5dab3b_def9%40026N07t7NHyFTlF4aRYeJVNE%40eyJmbG9vcklkIjo4MDY3NCwiic3BtQiiI6Il9wb3J0YWxfdjJfcGFnZXNfcHJvbW9fZ29vZHNfaW5kZXhfaHRtIiiwiic3JjRmxvb3JJZCI6IjgwNjc0In0ie%3BtkScm%3AselectionPlaza_site_4358_0_0_0_1_176656309747912520874%3Bscm%3A1007.30148.329090.pub_search-item_2ead5d68-0c6f-4fd7-ac44-0b5d5c98b190_", 
+        "红霉素": "https://s.click.taobao.com/t?e=m%3D2%26s%3Dq1y4DtN68RJw4vFB6t2Z2ueEDrYVVa64YUrQeSeIhnK53hKxp7mNFuhCZFSw9yq2BA17ISTnBpD0JlhLk0Jl4fmB7E%2BalZfSrAsMK%2BddScro%2Fi1T%2FGEHGtD5eST1FcWQhXCEiyvUOUCBv1l5JleziokvxOetQTZfHPHZ2OZt67uNvdEmtnfnqMMdMmP5rdjxsDBdoFgglO%2BfvzhpPMq2ed1bIvTScECDONo%2F1aEGuLK6lFG6EvefVY%2BDKwFLEd9Q5dUsQ8NYvbj%2B58h5pKGYu9cd3hRaMkj2H7jlVObKkkHGDF1NzTQoPw%3D%3D&union_lens=lensId%3APUB%401766563360%402106f1bb_207b_19b4f61ad86_cd0e%40027joFfg22GRu02bDU5xe8Ae%40eyJmbG9vcklkIjo4MDY3NCwiic3BtQiiI6Il9wb3J0YWxfdjJfcGFnZXNfcHJvbW9fZ29vZHNfaW5kZXhfaHRtIiiwiic3JjRmxvb3JJZCI6IjgwNjc0In0ie%3BtkScm%3AselectionPlaza_site_4358_0_0_0_1_176656336020212520874%3Bscm%3A1007.30148.329090.pub_search-item_f1401f33-50a4-4ec2-8f31-36abb5079fc0_",
+        "伊维菌素": "https://s.click.taobao.com/t?e=m%3D2%26s%3DCh0fLUbq1mdw4vFB6t2Z2ueEDrYVVa64YUrQeSeIhnK53hKxp7mNFuhCZFSw9yq2lj9atNeFsQD0JlhLk0Jl4fmB7E%2BalZfSrAsMK%2BddScro%2Fi1T%2FGEHGtD5eST1FcWQhXCEiyvUOUCBv1l5JlezitDm2E92EA5UXKtg6HMQI2j%2Flm4TwNlZuowe6%2FtGg2%2FRjN4f8DSxNxufI3HrG2B3QYJH7pzSGZyugdRqHNK9s76FAori8myvPtIbY3La5LcVGYfsNGVxcQj%2BVCU%2BBWrWF3B6Jd9pUfrR1KilmKsn0wwkwRIkWNyzAAgoHQLvGc1txg5p7bh%2BFbQ%3D&union_lens=lensId%3APUB%401766563469%400b520354_20f1_19b4f6356d5_d985%40027Jh6gxyD2NiQ6JJD2SDWXQ%40eyJmbG9vcklkIjo4MDY3NCwiic3BtQiiI6Il9wb3J0YWxfdjJfcGFnZXNfcHJvbW9fZ29vZHNfaW5kZXhfaHRtIiiwiic3JjRmxvb3JJZCI6IjgwNjc0In0ie%3BtkScm%3AselectionPlaza_site_4358_0_0_0_1_176656346908312520874%3Bscm%3A1007.30148.329090.pub_search-item_46dec217-58a1-4439-bfb7-b99c431e8f24_",
+        "酮康唑": "https://s.click.taobao.com/t?e=m%3D2%26s%3DRgwukv2qBHFw4vFB6t2Z2ueEDrYVVa64YUrQeSeIhnK53hKxp7mNFuhCZFSw9yq2KWmsY8OsYSv0JlhLk0Jl4fmB7E%2BalZfSrAsMK%2BddScro%2Fi1T%2FGEHGtD5eST1FcWQhXCEiyvUOUCBv1l5JleziokvxOetQTZfHPHZ2OZt67s9B4xXEGTfTd6W29f8c%2F14Nia8wuSlpscP2ybq%2BpxvHebP8pONwZoSkkI8Oi6Mv4y%2BpviUTzGzwk%2FuprW1TdmBLeMqtJBmsqDZGL0GbiMMd4BiBMLr%2FJA1Qu9eQL6i%2FqFMdIp1rr4P3Q%3D%3D&union_lens=lensId%3APUB%401766563691%4021079449_20ae_19b4f66bd50_ce7a%40023VcIqTrPfUTz4L4eAkwZmx%40eyJmbG9vcklkIjo4MDY3NCwiic3BtQiiI6Il9wb3J0YWxfdjJfcGFnZXNfcHJvbW9fZ29vZHNfaW5kZXhfaHRtIiiwiic3JjRmxvb3JJZCI6IjgwNjc0In0ie%3BtkScm%3AselectionPlaza_site_4358_0_0_0_5_176656369192712520874%3Bscm%3A1007.30148.329090.pub_search-item_a658cf5a-afa0-4e6f-8348-2089b9620efd_",
+        // 你可以继续添加...
+    };
+
+    // 默认兜底搜索链接 (AI 提到的药如果不在上面，就去这里搜)
+    const DEFAULT_SEARCH_URL = "https://s.taobao.com/search?q=";
+
+    // ===========================================
 
     const fileInput = document.getElementById('fileInput');
     const previewImage = document.getElementById('previewImage');
@@ -206,29 +232,52 @@
     });
 
     diagnoseBtn.addEventListener('click', async () => {
-        // 本地环境检查
-        if (window.location.protocol === 'file:') {
-            return alert('❌ 请将项目部署到 Cloudflare Pages 后再运行！\n本地直接打开无法调用 Functions 接口。');
-        }
-
+        if (window.location.protocol === 'file:') return alert('❌ 请部署到 Cloudflare Pages 后再运行！');
         if (!selectedFile) return alert('请先上传图片！');
         
         setLoading(true);
         resultArea.style.display = 'none';
         
         try {
-            // 1. 上传图片 (请求相对路径 /upload)
             log('🚀 1/3 正在上传图片...');
             const fileId = await uploadFileToProxy(selectedFile);
             
-            // 2. 创建对话并轮询 (请求相对路径 /chat)
             log('🤖 2/3 图片已接收，AI正在思考中...');
             const answer = await processChatProxy(fileId);
             
-            // 3. 渲染
             log('✨ 3/3 诊断完成！');
-            resultContent.innerHTML = marked.parse(answer);
+            
+            // --- 智能链接替换逻辑 ---
+            const formattedAnswer = answer.replace(/\[\[(.*?)\]\]/g, (match, rawName) => {
+                const drugName = rawName.trim();
+                let targetUrl = '';
+                let isPromoted = false;
+
+                // 模糊匹配配置表
+                for (const [key, url] of Object.entries(DRUG_MAP)) {
+                    if (drugName.includes(key) || key.includes(drugName)) {
+                        targetUrl = url;
+                        isPromoted = true;
+                        break;
+                    }
+                }
+
+                // 兜底逻辑
+                if (!targetUrl) {
+                    targetUrl = DEFAULT_SEARCH_URL + encodeURIComponent(drugName);
+                }
+
+                const icon = isPromoted ? '🔥' : '🛒';
+                const label = isPromoted ? `推荐 ${drugName}` : `搜 ${drugName}`;
+                
+                // 返回自定义样式的 A 标签
+                return `<a href="${targetUrl}" target="_blank" class="drug-link ${isPromoted ? 'promoted' : ''}">${icon} ${label}</a>`;
+            });
+
+            resultContent.innerHTML = marked.parse(formattedAnswer);
             resultArea.style.display = 'block';
+            // 滚动到结果
+            resultArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
         } catch (error) {
             log(`❌ 错误: ${error.message}`, true);
@@ -237,34 +286,24 @@
         }
     });
 
-    // --- 后端代理调用 (自动使用相对路径) ---
-
+    // --- API 调用逻辑 ---
     async function uploadFileToProxy(file) {
         const formData = new FormData();
         formData.append('file', file);
-        
-        // 这里的路径前面加了 /，代表网站根目录下的 upload
-        const res = await fetch(`${WORKER_URL}/upload`, {
-            method: 'POST',
-            body: formData
-        });
-
-        if (!res.ok) {
-            // 尝试读取错误信息
-            let errMsg = `Status ${res.status}`;
-            try { errMsg = await res.text(); } catch(e){}
-            throw new Error(`上传请求失败: ${errMsg}`);
-        }
-
+        const res = await fetch(`${WORKER_URL}/upload`, { method: 'POST', body: formData });
+        if (!res.ok) throw new Error(`上传失败: ${res.status}`);
         const data = await res.json();
         if (data.code !== 0) throw new Error(data.msg);
         return data.data.id;
     }
 
     async function processChatProxy(fileId) {
-        // A. 创建对话
+        // 修改 Prompt，要求 AI 使用 [[ ]] 包裹药名
         const messageObject = [
-            { type: "text", text: "请仔细查看这张图片，分析宠物可能的皮肤病症状，并给出治疗建议。" },
+            { 
+                type: "text", 
+                text: "请仔细分析图片中的宠物皮肤病症状。关键要求：建议用药时，必须用双中括号包裹药品名称，例如 [[皮特芬]]、[[伊维菌素]]，以便生成购买链接。" 
+            },
             { type: "image", file_id: fileId }
         ];
 
@@ -274,11 +313,7 @@
             stream: false,
             auto_save_history: true,
             additional_messages: [
-                {
-                    role: "user",
-                    content_type: "object_string",
-                    content: JSON.stringify(messageObject)
-                }
+                { role: "user", content_type: "object_string", content: JSON.stringify(messageObject) }
             ]
         };
 
@@ -288,49 +323,32 @@
             body: JSON.stringify(payload)
         });
 
-        if (!createRes.ok) throw new Error(`创建对话失败 Status: ${createRes.status}`);
         const createData = await createRes.json();
-        
-        if (createData.code !== 0) throw new Error(`创建对话API报错: ${createData.msg}`);
+        if (createData.code !== 0) throw new Error(`对话创建失败: ${createData.msg}`);
         
         const conversationId = createData.data.conversation_id;
         const chatId = createData.data.id;
 
-        // B. 轮询状态
+        // 轮询
         let status = createData.data.status;
         let attempts = 0;
-        
         while (status === 'in_progress' || status === 'created') {
             attempts++;
-            if (attempts > 30) throw new Error("AI 响应超时");
-            
+            if (attempts > 40) throw new Error("AI 响应超时");
             log(`⏳ AI 思考中... (${attempts}s)`);
             await new Promise(r => setTimeout(r, 1000));
-
-            // 请求相对路径 /retrieve
-            const checkRes = await fetch(`${WORKER_URL}/retrieve?chat_id=${chatId}&conversation_id=${conversationId}`, {
-                method: 'GET'
-            });
+            
+            const checkRes = await fetch(`${WORKER_URL}/retrieve?chat_id=${chatId}&conversation_id=${conversationId}`);
             const checkData = await checkRes.json();
             status = checkData.data.status;
-            
-            if (status === 'failed') throw new Error("AI 处理失败: " + checkData.data.last_error?.msg);
+            if (status === 'failed') throw new Error("AI 处理失败");
         }
 
-        if (status !== 'completed') throw new Error(`任务异常状态: ${status}`);
-
-        // C. 获取最终消息 (请求相对路径 /message/list)
-        const listRes = await fetch(`${WORKER_URL}/message/list?chat_id=${chatId}&conversation_id=${conversationId}`, {
-            method: 'GET'
-        });
-        
+        const listRes = await fetch(`${WORKER_URL}/message/list?chat_id=${chatId}&conversation_id=${conversationId}`);
         const listData = await listRes.json();
-        const messages = listData.data;
+        const answerMsg = listData.data.find(m => m.role === 'assistant' && m.type === 'answer');
         
-        const answerMsg = messages.find(m => m.role === 'assistant' && m.type === 'answer');
-        if (answerMsg) return answerMsg.content;
-        
-        return "AI 处理完成，但未返回文本内容。";
+        return answerMsg ? answerMsg.content : "AI 未返回内容";
     }
 
     function setLoading(isLoading) {
@@ -342,4 +360,3 @@
 
 </body>
 </html>
-
